@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:zmodem/src/consts.dart' as consts;
 import 'package:zmodem/src/crc.dart';
+import 'package:zmodem/src/escape.dart';
 import 'package:zmodem/src/util/string.dart';
 import 'package:zmodem/zmodem.dart';
 
@@ -187,11 +188,11 @@ class ZModemDataPacket implements ZModemPacket {
   }) {
     final type = reply
         ? eof
-            ? consts.ZCRCE
-            : consts.ZCRCG
+            ? consts.ZCRCW
+            : consts.ZCRCQ
         : eof
-            ? consts.ZCRCQ
-            : consts.ZCRCW;
+            ? consts.ZCRCE
+            : consts.ZCRCG;
     return ZModemDataPacket(type, data);
   }
 
@@ -201,17 +202,17 @@ class ZModemDataPacket implements ZModemPacket {
   }
 
   Uint8List toBinary() {
-    final buffer = Uint8List(data.length + 4);
-    buffer.setAll(0, data);
-    buffer[data.length] = consts.ZDLE;
-    buffer[data.length + 1] = type;
+    final buffer = BytesBuilder();
+    buffer.addEscapedData(data);
+    buffer.addByte(consts.ZDLE);
+    buffer.addByte(type);
     final crc = CRC16()
       ..updateAll(data)
       ..update(type)
       ..finalize();
-    buffer[data.length + 2] = crc.value >> 8;
-    buffer[data.length + 3] = crc.value & 0xff;
-    return buffer;
+    buffer.addEscapedByte(crc.value >> 8);
+    buffer.addEscapedByte(crc.value & 0xff);
+    return buffer.takeBytes();
   }
 
   @override

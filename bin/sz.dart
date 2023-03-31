@@ -22,7 +22,10 @@ void main(List<String> files) async {
 }
 
 Future<void> sz(List<String> files) async {
-  final zcore = ZModemCore(isSending: true);
+  final zcore = ZModemCore(
+    isSending: true,
+    // onTrace: File('trace.log').openWrite().writeln,
+  );
 
   if (zcore.hasDataToSend) {
     stdout.add(zcore.dataToSend());
@@ -34,13 +37,12 @@ Future<void> sz(List<String> files) async {
 
   await for (final event in stdin) {
     for (final event in zcore.receive(event as Uint8List)) {
-      print('event: $event');
-
       if (event is ZReceiverReadyEvent) {
         if (filesLeft.isNotEmpty) {
           final file = filesLeft.removeFirst();
+          final length = await File(file).length();
           currentFile = file;
-          zcore.offerFile(ZModemFileInfo(pathname: file));
+          zcore.offerFile(ZModemFileInfo(pathname: file, length: length));
         } else {
           zcore.finishSession();
         }
@@ -74,5 +76,7 @@ Future<void> sz(List<String> files) async {
       break;
     }
   }
+
+  stdout.write('OO');
   await stdout.flush();
 }
