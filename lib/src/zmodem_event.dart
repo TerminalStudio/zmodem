@@ -3,6 +3,7 @@ import 'package:zmodem/src/zmodem_fileinfo.dart';
 
 abstract class ZModemEvent {}
 
+/// The other side has offered a file for transfer.
 class ZFileOfferedEvent implements ZModemEvent {
   final ZModemFileInfo fileInfo;
 
@@ -16,6 +17,7 @@ class ZFileOfferedEvent implements ZModemEvent {
   }
 }
 
+/// A chunk of data of the file currently being received.
 class ZFileDataEvent implements ZModemEvent {
   final List<int> data;
 
@@ -29,6 +31,7 @@ class ZFileDataEvent implements ZModemEvent {
   }
 }
 
+/// The file we're currently receiving has been completely transferred.
 class ZFileReceivedEvent implements ZModemEvent {
   @override
   String toString() {
@@ -36,6 +39,7 @@ class ZFileReceivedEvent implements ZModemEvent {
   }
 }
 
+/// The session has been terminated.
 class ZSessionFinishedEvent implements ZModemEvent {
   @override
   String toString() {
@@ -43,13 +47,15 @@ class ZSessionFinishedEvent implements ZModemEvent {
   }
 }
 
-class ZReceiverReadyEvent implements ZModemEvent {
+/// The other side is ready to receive a file.
+class ZReadyToSendEvent implements ZModemEvent {
   @override
   String toString() {
-    return 'ZReceiverReadyEvent()';
+    return 'ZReadyToSendEvent()';
   }
 }
 
+/// The other side has accepted a file we just offered.
 class ZFileAcceptedEvent implements ZModemEvent {
   const ZFileAcceptedEvent(this.offset);
 
@@ -61,6 +67,7 @@ class ZFileAcceptedEvent implements ZModemEvent {
   }
 }
 
+/// The other side has rejected a file we just offered.
 class ZFileSkippedEvent implements ZModemEvent {
   @override
   String toString() {

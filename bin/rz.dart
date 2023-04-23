@@ -22,7 +22,8 @@ void main() async {
 }
 
 Future<void> rz() async {
-  final zcore = ZModemCore(isSending: false);
+  final zcore = ZModemCore();
+  zcore.initiateReceive();
 
   if (zcore.hasDataToSend) {
     stdout.add(zcore.dataToSend());

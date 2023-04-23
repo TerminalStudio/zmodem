@@ -13,17 +13,7 @@ typedef ZModemTraceHandler = void Function(String message);
 
 /// Contains the state of a ZModem session.
 class ZModemCore {
-  ZModemCore({required this.isSending, this.onTrace}) {
-    if (isSending) {
-      _enqueue(ZModemHeader.rqinit());
-      _state = _ZRqinitState(this);
-    } else {
-      _enqueue(ZModemHeader.rinit());
-      _state = _ZInitState(this);
-    }
-  }
-
-  final bool isSending;
+  ZModemCore({this.onTrace});
 
   final _parser = ZModemParser();
 
@@ -31,7 +21,7 @@ class ZModemCore {
 
   Uint8List? _attnSequence;
 
-  late _ZModemState _state;
+  late _ZModemState _state = _ZInitState(this);
 
   bool get isFinished => _state is _ZFinState;
 
@@ -86,6 +76,18 @@ class ZModemCore {
     return builder.toBytes();
   }
 
+  void initiateSend() {
+    _requireState<_ZInitState>();
+    _enqueue(ZModemHeader.rqinit());
+    _state = _ZRqinitState(this);
+  }
+
+  void initiateReceive() {
+    _requireState<_ZInitState>();
+    _enqueue(ZModemHeader.rinit());
+    _state = _ZRinitState(this);
+  }
+
   void acceptFile([int offset = 0]) {
     _requireState<_ZReceivedFileProposalState>();
     _enqueue(ZModemHeader.rpos(offset));
@@ -108,7 +110,7 @@ class ZModemCore {
     }
   }
 
-  void finishFile(int offset) {
+  void finishSending(int offset) {
     _requireState<_ZSendingContentState>();
     _enqueue(ZModemDataPacket.fileData(Uint8List(0), eof: true));
     _enqueue(ZModemHeader.eof(offset));
@@ -145,8 +147,31 @@ abstract class _ZModemState {
   }
 }
 
+/// A state where no messages have been sent or received yet. Waiting for
+/// our or the other side to initiate the session.
 class _ZInitState extends _ZModemState {
   _ZInitState(super.core);
+
+  @override
+  ZModemEvent? handleHeader(ZModemHeader header) {
+    switch (header.type) {
+      case consts.ZRINIT:
+        core._state = _ZReadyToSendState(core);
+        return ZReadyToSendEvent();
+      case consts.ZRQINIT:
+        core._enqueue(ZModemHeader.rinit());
+        core._state = _ZRinitState(core);
+        return null;
+      default:
+        return super.handleHeader(header);
+    }
+  }
+}
+
+/// A state where we have requested a file transfer, but haven't received any
+/// file proposals yet.
+class _ZRinitState extends _ZModemState {
+  _ZRinitState(super.core);
 
   @override
   ZModemEvent? handleHeader(ZModemHeader header) {
@@ -169,6 +194,7 @@ class _ZInitState extends _ZModemState {
   }
 }
 
+/// A state where the other side is going to send us the attn sequence.
 class _ZSinitState extends _ZModemState {
   _ZSinitState(super.core);
 
@@ -179,11 +205,13 @@ class _ZSinitState extends _ZModemState {
     } else {
       core._attnSequence = packet.data.sublist(1);
     }
-    core._state = _ZInitState(core);
+    core._state = _ZRinitState(core);
     return null;
   }
 }
 
+/// A state where we've got a file proposal, but haven't decided whether to
+/// accept it or not.
 class _ZReceivedFileProposalState extends _ZModemState {
   _ZReceivedFileProposalState(super.core);
 
@@ -206,6 +234,8 @@ class _ZReceivedFileProposalState extends _ZModemState {
   }
 }
 
+/// A state where we've accepted a file proposal, but haven't received the ZDATA
+/// header yet.
 class _ZWaitingContentState extends _ZModemState {
   _ZWaitingContentState(super.core);
 
@@ -221,6 +251,8 @@ class _ZWaitingContentState extends _ZModemState {
   }
 }
 
+/// A state where we've received the ZDATA header, and are receiving the file
+/// contents.
 class _ZReceivingContentState extends _ZModemState {
   _ZReceivingContentState(super.core);
 
@@ -229,7 +261,7 @@ class _ZReceivingContentState extends _ZModemState {
     switch (header.type) {
       case consts.ZEOF:
         core._enqueue(ZModemHeader.rinit());
-        core._state = _ZInitState(core);
+        core._state = _ZRinitState(core);
         return ZFileReceivedEvent();
       default:
         return super.handleHeader(header);
@@ -242,6 +274,8 @@ class _ZReceivingContentState extends _ZModemState {
   }
 }
 
+/// A state where we've requested the other side to receive a file from us, but
+/// haven't been notified that it's ready yet.
 class _ZRqinitState extends _ZModemState {
   _ZRqinitState(super.core);
 
@@ -250,17 +284,21 @@ class _ZRqinitState extends _ZModemState {
     switch (header.type) {
       case consts.ZRINIT:
         core._state = _ZReadyToSendState(core);
-        return ZReceiverReadyEvent();
+        return ZReadyToSendEvent();
       default:
         return super.handleHeader(header);
     }
   }
 }
 
+/// A state where the other side has notified us that it's ready to receive a
+/// file from us.
 class _ZReadyToSendState extends _ZModemState {
   _ZReadyToSendState(super.core);
 }
 
+/// A state where we've sent a file proposal, but haven't received a response
+/// from the other side yet.
 class ZSentFileProposalState extends _ZModemState {
   ZSentFileProposalState(super.core);
 
@@ -280,6 +318,8 @@ class ZSentFileProposalState extends _ZModemState {
   }
 }
 
+/// A state where we've sent the ZDATA header, and are sending chunks of file
+/// contents.
 class _ZSendingContentState extends _ZModemState {
   _ZSendingContentState(super.core);
 }

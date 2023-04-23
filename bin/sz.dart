@@ -23,9 +23,9 @@ void main(List<String> files) async {
 
 Future<void> sz(List<String> files) async {
   final zcore = ZModemCore(
-    isSending: true,
-    // onTrace: File('trace.log').openWrite().writeln,
-  );
+      // onTrace: File('trace.log').openWrite().writeln,
+      );
+  zcore.initiateSend();
 
   if (zcore.hasDataToSend) {
     stdout.add(zcore.dataToSend());
@@ -37,7 +37,7 @@ Future<void> sz(List<String> files) async {
 
   await for (final event in stdin) {
     for (final event in zcore.receive(event as Uint8List)) {
-      if (event is ZReceiverReadyEvent) {
+      if (event is ZReadyToSendEvent) {
         if (filesLeft.isNotEmpty) {
           final file = filesLeft.removeFirst();
           final length = await File(file).length();
@@ -55,7 +55,7 @@ Future<void> sz(List<String> files) async {
           bytesSent += chunk.length;
           stdout.add(zcore.dataToSend());
         }
-        zcore.finishFile(offset + bytesSent);
+        zcore.finishSending(offset + bytesSent);
       } else if (event is ZFileSkippedEvent) {
         if (filesLeft.isEmpty) {
           zcore.finishSession();
