@@ -1,2 +1,2 @@
-A sample command-line application with an entrypoint in `bin/`, library code
-in `lib/`, and example unit test in `test/`.
+A state machine based, bring-your-own-io style implementation of the ZMODEM protocol in pure Dart
+
