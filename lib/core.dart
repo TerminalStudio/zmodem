@@ -94,6 +94,12 @@ class ZModemCore {
     _state = _ZWaitingContentState(this);
   }
 
+  void skipFile() {
+    _requireState<_ZReceivedFileProposalState>();
+    _enqueue(ZModemHeader.skip());
+    _state = _ZRinitState(this);
+  }
+
   void offerFile(ZModemFileInfo fileInfo) {
     _requireState<_ZReadyToSendState>();
     _enqueue(ZModemHeader.file());
@@ -168,8 +174,7 @@ class _ZInitState extends _ZModemState {
   }
 }
 
-/// A state where we have requested a file transfer, but haven't received any
-/// file proposals yet.
+/// A state where we have requested a file transfer and waiting a file proposal.
 class _ZRinitState extends _ZModemState {
   _ZRinitState(super.core);
 
