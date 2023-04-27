@@ -1,3 +1,7 @@
+## 0.0.5
+
+- Remove unused deps
+
 ## 0.0.4
 
 - Dep version
