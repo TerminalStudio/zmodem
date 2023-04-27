@@ -100,15 +100,15 @@ class ZModemHeader implements ZModemPacket {
   }
 
   Uint8List toBinary() {
-    final buffer = Uint8List(10);
-    buffer[0] = consts.ZPAD;
-    buffer[1] = consts.ZDLE;
-    buffer[2] = consts.ZBIN;
-    buffer[3] = type;
-    buffer[4] = p0;
-    buffer[5] = p1;
-    buffer[6] = p2;
-    buffer[7] = p3;
+    final buffer = BytesBuilder();
+    buffer.addByte(consts.ZPAD);
+    buffer.addByte(consts.ZDLE);
+    buffer.addByte(consts.ZBIN);
+    buffer.addEscapedByte(type);
+    buffer.addEscapedByte(p0);
+    buffer.addEscapedByte(p1);
+    buffer.addEscapedByte(p2);
+    buffer.addEscapedByte(p3);
     final crc = CRC16()
       ..update(type)
       ..update(p0)
@@ -116,9 +116,9 @@ class ZModemHeader implements ZModemPacket {
       ..update(p2)
       ..update(p3)
       ..finalize();
-    buffer[8] = crc.value >> 8;
-    buffer[9] = crc.value & 0xff;
-    return buffer;
+    buffer.addEscapedByte(crc.value >> 8);
+    buffer.addEscapedByte(crc.value & 0xff);
+    return buffer.takeBytes();
   }
 
   Uint8List toHex() {

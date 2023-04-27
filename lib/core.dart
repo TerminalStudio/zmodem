@@ -323,7 +323,7 @@ class _ZReadyToSendState extends _ZModemState {
   ZModemEvent? handleHeader(ZModemHeader header) {
     switch (header.type) {
       case consts.ZRINIT:
-        // Ignore the retry ZRINIT from remote when we are selecting files.
+        // Ignore delayed ZRINIT retry.
         return null;
       default:
         return super.handleHeader(header);
@@ -339,6 +339,9 @@ class ZSentFileProposalState extends _ZModemState {
   @override
   ZModemEvent? handleHeader(ZModemHeader header) {
     switch (header.type) {
+      case consts.ZRINIT:
+        // Ignore delayed ZRINIT retry.
+        return null;
       case consts.ZRPOS:
         core._enqueue(ZModemHeader.data(0)); // TODO: parse p0 ~ p3
         core._state = _ZSendingContentState(core);

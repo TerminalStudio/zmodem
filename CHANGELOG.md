@@ -1,3 +1,7 @@
+## 0.0.6
+
+- Correct escape
+
 ## 0.0.5
 
 - Remove unused deps
