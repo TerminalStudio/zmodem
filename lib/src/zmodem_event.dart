@@ -32,14 +32,14 @@ class ZFileDataEvent implements ZModemEvent {
 }
 
 /// The file we're currently receiving has been completely transferred.
-class ZFileReceivedEvent implements ZModemEvent {
+class ZFileEndEvent implements ZModemEvent {
   @override
   String toString() {
-    return 'ZFileReceivedEvent()';
+    return 'ZFileEndEvent()';
   }
 }
 
-/// The session has been terminated.
+/// The event fired when the ZModem session is fully closed.
 class ZSessionFinishedEvent implements ZModemEvent {
   @override
   String toString() {

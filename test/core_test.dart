@@ -32,7 +32,7 @@ void main() {
         client.receive(server.dataToSend()),
         [
           isA<ZFileDataEvent>(), // ZCRCE
-          isA<ZFileReceivedEvent>(), // ZEOF
+          isA<ZFileEndEvent>(), // ZEOF
         ],
       );
 

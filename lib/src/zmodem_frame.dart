@@ -3,11 +3,12 @@ import 'dart:typed_data';
 import 'package:zmodem/src/consts.dart' as consts;
 import 'package:zmodem/src/crc.dart';
 import 'package:zmodem/src/escape.dart';
+import 'package:zmodem/src/util/int.dart';
 import 'package:zmodem/src/util/string.dart';
 import 'package:zmodem/zmodem.dart';
 
 abstract class ZModemPacket {
-  int get type;
+  // int get type;
 
   // bool get isCorrupted;
 
@@ -56,7 +57,7 @@ class ZModemHeader implements ZModemPacket {
   }
 
   factory ZModemHeader.rinit() {
-    return ZModemHeader(consts.ZRINIT, 0, 0, 0, 0x23);
+    return ZModemHeader(consts.ZRINIT, 0, 0, 0, consts.CANFDX | consts.CANOVIO);
   }
 
   factory ZModemHeader.ack() {
@@ -90,7 +91,7 @@ class ZModemHeader implements ZModemPacket {
   @override
   String toString() {
     final type = _frameTypeToString(this.type);
-    return 'ZModemHeader($type, $p0, $p1, $p2, $p3)';
+    return 'ZModemHeader($type, ${p0.hex}, ${p1.hex}, ${p2.hex}, ${p3.hex})';
   }
 
   @override
@@ -162,16 +163,14 @@ class ZModemDataPacket implements ZModemPacket {
     final properties = StringBuffer();
     if (fileInfo.length != null) {
       properties.write(fileInfo.length);
-      if (fileInfo.modificationTime != null) {
-        properties.write(' ${fileInfo.modificationTime}');
-        if (fileInfo.mode != null) {
-          properties.write(' ${fileInfo.mode}');
-          if (fileInfo.filesRemaining != null) {
-            properties.write(' 0'); // serial number, must be 0
-            properties.write(' ${fileInfo.filesRemaining}');
-            if (fileInfo.bytesRemaining != null) {
-              properties.write(' ${fileInfo.bytesRemaining}');
-            }
+      properties.write(' ${fileInfo.modificationTime ?? 0}');
+      if (fileInfo.mode != null) {
+        properties.write(' ${fileInfo.mode}');
+        if (fileInfo.filesRemaining != null) {
+          properties.write(' 0'); // serial number, must be 0
+          properties.write(' ${fileInfo.filesRemaining}');
+          if (fileInfo.bytesRemaining != null) {
+            properties.write(' ${fileInfo.bytesRemaining}');
           }
         }
       }
@@ -280,5 +279,33 @@ String _frameTypeToString(int type) {
       return 'ZCRCW';
     default:
       return 'UNKNOWN';
+  }
+}
+
+class ZModemAbortSequence implements ZModemPacket {
+  const ZModemAbortSequence();
+
+  static final abortSequence = Uint8List.fromList([
+    consts.CAN,
+    consts.CAN,
+    consts.CAN,
+    consts.CAN,
+    consts.CAN,
+  ]);
+
+  @override
+  Uint8List encode() {
+    return abortSequence;
+  }
+}
+
+class ZModemOverAndOut implements ZModemPacket {
+  const ZModemOverAndOut();
+
+  static final overAndOut = Uint8List.fromList('OO'.codeUnits);
+
+  @override
+  Uint8List encode() {
+    return overAndOut;
   }
 }

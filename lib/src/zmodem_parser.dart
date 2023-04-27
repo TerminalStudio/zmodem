@@ -9,14 +9,13 @@ import 'package:zmodem/src/zmodem_frame.dart';
 class ZModemParser implements Iterator<ZModemPacket> {
   final _buffer = ChunkBuffer();
 
+  late final Iterator<ZModemPacket?> _parser = _createParser().iterator;
+
+  void Function(int)? onPlainText;
+
   ZModemPacket? _current;
 
-  late final Iterator<ZModemPacket?> _parser = _parse().iterator;
-
-  void addData(Uint8List data) {
-    _buffer.add(data);
-  }
-
+  /// The last parsed packet.
   @override
   ZModemPacket get current {
     if (_current == null) {
@@ -25,6 +24,15 @@ class ZModemParser implements Iterator<ZModemPacket> {
     return _current!;
   }
 
+  /// Adds more data to the buffer for the parser to consume. Call [moveNext]
+  /// after this to parse the next packet.
+  void addData(Uint8List data) {
+    _buffer.add(data);
+  }
+
+  /// Let the parser parse the next packet. Returns true if a packet is parsed.
+  /// After returning true, the [current] property will be set to the parsed
+  /// packet.
   @override
   bool moveNext() {
     _parser.moveNext();
@@ -39,8 +47,33 @@ class ZModemParser implements Iterator<ZModemPacket> {
     return true;
   }
 
-  Iterable<ZModemPacket?> _parse() sync* {
+  var _expectDataSubpacket = false;
+
+  /// Tells the parser to expect the next packet to be a data subpacket.
+  ///
+  /// This is necessary because lrzsz produces plain text beween ZMODEM frames
+  /// and it's impossible to distinguish between plain text and a data subpacket
+  /// without this prompt....
+  void expectDataSubpacket() {
+    print('expectDataSubpacket');
+    _expectDataSubpacket = true;
+  }
+
+  /// Creates an instance of zmodem parser.
+  ///
+  /// This uses the sync* generator syntax to be able to yield when no enough
+  /// data is available and resume the context later when more data is added.
+  ///
+  /// The returned iterator yields null when no enough data is available and
+  /// yields a [ZModemPacket] when a packet is parsed.
+  Iterable<ZModemPacket?> _createParser() sync* {
     while (true) {
+      if (_expectDataSubpacket) {
+        _expectDataSubpacket = false;
+        yield* _parseDataSubpacket();
+        continue;
+      }
+
       while (_buffer.length < 4) {
         yield null;
       }
@@ -61,13 +94,20 @@ class ZModemParser implements Iterator<ZModemPacket> {
           _buffer.expect(consts.ZPAD);
           _buffer.expect(consts.ZDLE);
           _buffer.expect(consts.ZBIN);
-          yield* _parseBinaryHeader();
+          yield* _parseBinaryPacket();
           continue;
         }
       }
 
-      yield* _parseDataSubpacket();
+      _handleDirtyChar(_buffer.readByte());
     }
+  }
+
+  void _handleDirtyChar(int byte) {
+    if (byte == consts.XON) {
+      return;
+    }
+    onPlainText?.call(byte);
   }
 
   Iterable<ZModemPacket?> _parseHexHeader() sync* {
@@ -100,21 +140,13 @@ class ZModemParser implements Iterator<ZModemPacket> {
       }
     }
 
-    _buffer.expect(consts.LF);
+    // _buffer.expect(consts.LF);
+    _buffer.expect(0x8a);
 
     yield ZModemHeader(frameType, p0, p1, p2, p3);
-
-    // Consume the optional XON.
-    while (_buffer.isEmpty) {
-      yield null;
-    }
-
-    if (_buffer.peek() == consts.XON) {
-      _buffer.readByte();
-    }
   }
 
-  Iterable<ZModemPacket?> _parseBinaryHeader() sync* {
+  Iterable<ZModemPacket?> _parseBinaryPacket() sync* {
     // Binary header has variable length, though it always has at least 7 bytes.
     while (_buffer.length < 7) {
       yield null;

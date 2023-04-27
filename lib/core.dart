@@ -11,23 +11,28 @@ import 'package:zmodem/src/consts.dart' as consts;
 
 typedef ZModemTraceHandler = void Function(String message);
 
+typedef ZModemTextHandler = void Function(int char);
+
 /// Contains the state of a ZModem session.
 class ZModemCore {
-  ZModemCore({this.onTrace});
+  ZModemCore({this.onTrace, this.onPlainText});
 
-  final _parser = ZModemParser();
+  late final _parser = ZModemParser()..onPlainText = onPlainText;
 
   final _sendQueue = Queue<ZModemPacket>();
 
+  // ignore: unused_field
   Uint8List? _attnSequence;
 
   late _ZModemState _state = _ZInitState(this);
 
   bool get isFinished => _state is _ZFinState;
 
-  final maxDataSubpacketSize = 1024;
+  final maxDataSubpacketSize = 8192;
 
   final ZModemTraceHandler? onTrace;
+
+  final ZModemTextHandler? onPlainText;
 
   Iterable<ZModemEvent> receive(Uint8List data) sync* {
     _parser.addData(data);
@@ -53,6 +58,10 @@ class ZModemCore {
 
   void _enqueue(ZModemPacket packet) {
     _sendQueue.add(packet);
+  }
+
+  void _expectDataSubpacket() {
+    _parser.expectDataSubpacket();
   }
 
   void _requireState<T extends _ZModemState>() {
@@ -124,9 +133,12 @@ class ZModemCore {
   }
 
   void finishSession() {
-    // _requireState<ZReadyToSendState>();
-    // _enqueue(ZModemHeader.fin());
-    _state = _ZFinState(this);
+    if (_state is _ZClosedState || _state is _ZFinState) {
+      return;
+    }
+
+    _enqueue(ZModemHeader.fin());
+    _state = _ZClosedState(this);
   }
 }
 
@@ -184,9 +196,11 @@ class _ZRinitState extends _ZModemState {
       case consts.ZSINIT:
         core._enqueue(ZModemHeader.ack());
         core._state = _ZSinitState(core);
+        core._expectDataSubpacket();
         break;
       case consts.ZFILE:
         core._state = _ZReceivedFileProposalState(core);
+        core._expectDataSubpacket();
         break;
       case consts.ZFIN:
         core._enqueue(ZModemHeader.fin());
@@ -249,6 +263,7 @@ class _ZWaitingContentState extends _ZModemState {
     switch (header.type) {
       case consts.ZDATA:
         core._state = _ZReceivingContentState(core);
+        core._expectDataSubpacket();
         return null;
       default:
         return super.handleHeader(header);
@@ -267,7 +282,7 @@ class _ZReceivingContentState extends _ZModemState {
       case consts.ZEOF:
         core._enqueue(ZModemHeader.rinit());
         core._state = _ZRinitState(core);
-        return ZFileReceivedEvent();
+        return ZFileEndEvent();
       default:
         return super.handleHeader(header);
     }
@@ -275,6 +290,9 @@ class _ZReceivingContentState extends _ZModemState {
 
   @override
   ZModemEvent? handleDataSubpacket(ZModemDataPacket packet) {
+    if (packet.type == consts.ZCRCG || packet.type == consts.ZCRCQ) {
+      core._expectDataSubpacket();
+    }
     return ZFileDataEvent(packet.data);
   }
 }
@@ -300,6 +318,17 @@ class _ZRqinitState extends _ZModemState {
 /// file from us.
 class _ZReadyToSendState extends _ZModemState {
   _ZReadyToSendState(super.core);
+
+  @override
+  ZModemEvent? handleHeader(ZModemHeader header) {
+    switch (header.type) {
+      case consts.ZRINIT:
+        // Ignore the retry ZRINIT from remote when we are selecting files.
+        return null;
+      default:
+        return super.handleHeader(header);
+    }
+  }
 }
 
 /// A state where we've sent a file proposal, but haven't received a response
@@ -329,6 +358,24 @@ class _ZSendingContentState extends _ZModemState {
   _ZSendingContentState(super.core);
 }
 
+/// A state where we as the sender have sent the ZFIN header, and are waiting
+/// for the other side to acknowledge it.
+class _ZClosedState extends _ZModemState {
+  _ZClosedState(super.core);
+
+  @override
+  ZModemEvent? handleHeader(ZModemHeader header) {
+    switch (header.type) {
+      case consts.ZFIN:
+        core._enqueue(ZModemOverAndOut());
+        core._state = _ZFinState(core);
+        return ZSessionFinishedEvent();
+    }
+    return null;
+  }
+}
+
+/// A state where the session is fully closed.
 class _ZFinState extends _ZModemState {
   _ZFinState(super.core);
 }

@@ -66,3 +66,13 @@ const TIMEOUT = -1; // Rx routine did not receive a character within timeout
 const INVHDR = -2; // Invalid header received; but within timeout
 const INVDATA = -3; // Invalid data subpacket received
 const ZDLEESC = 0x8000; // One of ZCRCE/ZCRCG/ZCRCQ/ZCRCW was ZDLE escaped
+
+// ZMODEM capabilities flags
+const CANFDX = 0x01; // Rx can send and receive true FDX
+const CANOVIO = 0x02; // Rx can receive data during disk I/O
+const CANBRK = 0x04; // Rx can send a break signal
+const CANCRY = 0x08; // Receiver can decrypt -- nothing does this
+const CANLZW = 0x10; // Receiver can uncompress -- nothing does this
+const CANFC32 = 0x20; // Receiver can use 32 bit Frame Check
+const ESCCTL = 0x40; // Receiver expects ctl chars to be escaped
+const ESC8 = 0x80; // Receiver expects 8th bit to be escaped

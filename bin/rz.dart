@@ -46,7 +46,7 @@ Future<void> rz() async {
         fileSink = File(fileInfo.pathname).openWrite();
       } else if (event is ZFileDataEvent) {
         fileSink!.add(event.data);
-      } else if (event is ZFileReceivedEvent) {
+      } else if (event is ZFileEndEvent) {
         await fileSink!.close();
         fileSink = null;
         fileInfo = null;
