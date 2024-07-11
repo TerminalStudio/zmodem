@@ -46,6 +46,13 @@ class ZSessionFinishedEvent implements ZModemEvent {
     return 'ZSessionFinishedEvent()';
   }
 }
+/// The event fired when the ZModem aborted
+class ZSessionAbortedEvent implements ZModemEvent {
+  @override
+  String toString() {
+    return 'ZSessionAbortedEvent()';
+  }
+}
 
 /// The other side is ready to receive a file.
 class ZReadyToSendEvent implements ZModemEvent {

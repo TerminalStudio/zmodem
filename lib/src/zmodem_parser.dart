@@ -55,7 +55,6 @@ class ZModemParser implements Iterator<ZModemPacket> {
   /// and it's impossible to distinguish between plain text and a data subpacket
   /// without this prompt....
   void expectDataSubpacket() {
-    print('expectDataSubpacket');
     _expectDataSubpacket = true;
   }
 

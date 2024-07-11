@@ -34,7 +34,32 @@ class ZModemCore {
 
   final ZModemTextHandler? onPlainText;
 
+  bool _findSubSeq(Uint8List origin, Uint8List subSeq) {
+    // 如果 b 是空数组，直接返回 true
+    if (subSeq.isEmpty) return true;
+
+    // 如果 a 的长度小于 b 的长度，直接返回 false
+    if (origin.length < subSeq.length) return false;
+
+    // 遍历 a 数组，检查是否存在连续的子序列与 b 相等
+    for (int i = 0; i <= origin.length - subSeq.length; i++) {
+      bool match = true;
+      for (int j = 0; j < subSeq.length; j++) {
+        if (origin[i + j] != subSeq[j]) {
+          match = false;
+          break;
+        }
+      }
+      if (match) return true;
+    }
+
+    return false;
+  }
+
   Iterable<ZModemEvent> receive(Uint8List data) sync* {
+    if (_findSubSeq(data, ZModemAbortSequence.abortSequence)) {
+      yield ZSessionAbortedEvent();
+    }
     _parser.addData(data);
     // print('data: ${data.map((e) => e.toRadixString(16)).toList()}');
 
